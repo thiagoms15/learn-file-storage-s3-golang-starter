@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"io"
+	"crypto/rand"
+	"encoding/base64"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -72,14 +74,20 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Determine file extension
 	ext := getExtensionFromContentType(contentType)
 	if ext == "" {
 		http.Error(w, "Unsupported content type: "+contentType, http.StatusBadRequest)
 		return
 	}
 
-	filename := fmt.Sprintf("%s%s", videoID, ext)
+	var randomBytes [32]byte
+	if _, err := rand.Read(randomBytes[:]); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to generate file name", err)
+		return
+	}
+	randomBase64 := base64.RawURLEncoding.EncodeToString(randomBytes[:])
+
+	filename := fmt.Sprintf("%s%s", randomBase64, ext)
 	fullPath := filepath.Join(cfg.assetsRoot, filename)
 
 	outFile, err := os.Create(fullPath)
